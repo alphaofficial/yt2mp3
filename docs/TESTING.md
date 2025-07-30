@@ -103,11 +103,12 @@ python -m pytest -k "not slow" -v
 ### Test Categories
 
 #### **Configuration Tests (`test_config.py`)**
-- ✅ Default configuration generation
+- ✅ Default configuration generation (including audio quality defaults)
 - ✅ Configuration file loading and saving
 - ✅ Setting updates and persistence
 - ✅ Error handling (invalid JSON, IO errors)
 - ✅ Path expansion and validation
+- ✅ Audio quality setting validation
 
 #### **Download Tests (`test_downloader.py`)**
 - ✅ URL validation (YouTube.com, youtu.be, invalid URLs)
