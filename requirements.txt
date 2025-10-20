@@ -1,5 +1,0 @@
-yt-dlp>=2023.12.30
-
-# Development dependencies
-pytest>=7.0.0
-pytest-cov>=4.0.0

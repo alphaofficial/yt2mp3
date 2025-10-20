@@ -4,14 +4,17 @@ Downloads YouTube videos and convert them to MP3 format.
 
 ## Installation
 
-### Option 1: Install as Package
+### Option 1: Install as Package (Recommended)
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/yt2mp3.git
 cd yt2mp3
 
+# Install with uv (fast)
+uv sync
+
 # Install the package
-pip install -e .
+uv pip install -e .
 
 # Now you can use yt2mp3 from anywhere
 yt2mp3 --help
@@ -23,11 +26,11 @@ yt2mp3 --help
 git clone https://github.com/yourusername/yt2mp3.git
 cd yt2mp3
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies with uv
+uv sync
 
 # Run directly
-python yt2mp3.py --help
+uv run python yt2mp3.py --help
 ```
 
 ### Prerequisites
@@ -108,21 +111,38 @@ The `audio_quality` setting controls the MP3 bitrate (quality vs file size):
 
 ## Development
 
+### Key Commands
+```bash
+# Install/update dependencies
+uv sync
+
+# Run tests in virtual environment
+uv run pytest
+
+# Add new dependencies
+uv add <package>
+
+# Build distribution packages
+uv build
+```
+
 ### Running Tests
 ```bash
 # Run all tests
-python -m pytest
+uv run pytest
 
 # Run with coverage
-python -m pytest --cov=src --cov-report=html
+uv run pytest --cov=src --cov-report=html
 
 # Run specific test file
-python -m pytest tests/test_config.py
+uv run pytest tests/test_config.py
 ```
 
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.8+
 - yt-dlp (YouTube downloader)
 - ffmpeg (audio conversion)
+
+**Note:** This project uses [uv](https://github.com/astral-sh/uv) for fast Python package management.

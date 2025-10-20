@@ -1,6 +1,49 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "yt2mp3"
+version = "1.0.0"
+description = "YouTube to MP3 Converter - Download YouTube videos and convert them to MP3 format"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "yt2mp3"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Conversion",
+    "Topic :: Internet :: WWW/HTTP",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "yt-dlp>=2023.12.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+yt2mp3 = "yt2mp3:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/yt2mp3"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yt2mp3"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
