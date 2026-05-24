@@ -17,9 +17,11 @@ _config = import_module("yt2mp3.config")
 _downloader = import_module("yt2mp3.downloader")
 
 DownloadRequest = _api.DownloadRequest
+BatchDownloadRequest = _api.BatchDownloadRequest
 DownloadResult = _api.DownloadResult
 normalize_resolution = _api.normalize_resolution
 url = _api.url
+urls = _api.urls
 CLI = _cli.CLI
 ConfigManager = _config.ConfigManager
 YouTubeDownloader = _downloader.YouTubeDownloader
@@ -28,11 +30,13 @@ __all__ = [
     "CLI",
     "ConfigManager",
     "DownloadRequest",
+    "BatchDownloadRequest",
     "DownloadResult",
     "YouTubeDownloader",
     "__version__",
     "normalize_resolution",
     "url",
+    "urls",
     "main",
 ]
 

@@ -4,6 +4,7 @@ import sys
 
 from . import __version__
 from .api import url as build_url
+from .api import urls as build_urls
 from .config import ConfigManager
 from .downloader import YouTubeDownloader
 from .lifecycle import LifecycleError, uninstall, upgrade
@@ -20,6 +21,8 @@ class CLI:
             prog="yt2mp3",
             epilog="Examples:\n"
             "  %(prog)s --link=\"https://youtube.com/watch?v=xxxxx\"\n"
+            "  %(prog)s --link=\"https://youtube.com/watch?v=xxxxx\" --link=\"https://youtu.be/yyyyy\"\n"
+            "  %(prog)s --links urls.txt\n"
             "  %(prog)s --link=\"https://youtube.com/watch?v=xxxxx\" --resolution 1080p --audio-quality 320 --output song.mp3\n"
             "  %(prog)s --set-download-path=\"~/Downloads/Music\"\n"
             "  %(prog)s upgrade\n"
@@ -29,7 +32,17 @@ class CLI:
         )
         parser.add_argument("command", nargs="?", choices=["upgrade", "uninstall"], help="Lifecycle command")
         parser.add_argument("--version", action="version", version=f"yt2mp3 {__version__}")
-        parser.add_argument("--link", metavar="URL", help="YouTube video URL to download and convert to MP3")
+        parser.add_argument(
+            "--link",
+            metavar="URL",
+            action="append",
+            help="YouTube video URL to download and convert to MP3; repeat for batch downloads",
+        )
+        parser.add_argument(
+            "--links",
+            metavar="FILE",
+            help="Text file of YouTube URLs to download, one per line; blank lines and full-line # comments are ignored",
+        )
         parser.add_argument("--resolution", metavar="HEIGHT", help="Maximum source video height, e.g. 1080p or 720")
         parser.add_argument("--audio-quality", metavar="KBPS", help="MP3 bitrate, e.g. 128, 192, 320")
         parser.add_argument("--output", metavar="FILE", help="Output MP3 filename or path")
@@ -90,12 +103,14 @@ class CLI:
                 except OSError as e:
                     print(f"Error setting download path: {e}")
 
-        if args.keep_video and not args.link:
+        has_links = bool(getattr(args, "link", None) or getattr(args, "links", None))
+
+        if args.keep_video and not has_links:
             self.config_manager.update_setting("keep_video", True)
             print("Video files will now be kept after MP3 conversion")
             config_changed = True
 
-        if args.no_keep_video and not args.link:
+        if args.no_keep_video and not has_links:
             self.config_manager.update_setting("keep_video", False)
             print("Video files will now be deleted after MP3 conversion (default)")
             config_changed = True
@@ -113,6 +128,39 @@ class CLI:
             return True
         return False
 
+    def read_links_file(self, path: str) -> list[str]:
+        urls = []
+        try:
+            with open(path, encoding="utf-8") as file:
+                for line in file:
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith("#"):
+                        continue
+                    urls.append(stripped)
+        except OSError as exc:
+            print(f"Error reading --links file '{path}': {exc}", file=sys.stderr)
+            raise SystemExit(2) from exc
+        return urls
+
+    def collect_links(self, args: argparse.Namespace) -> list[str]:
+        links = list(args.link or [])
+        if args.links:
+            file_links = self.read_links_file(args.links)
+            if not file_links:
+                print(f"Error: no URLs found in --links file '{args.links}'", file=sys.stderr)
+                raise SystemExit(2)
+            links.extend(file_links)
+        return links
+
+    def apply_download_options(self, request, args: argparse.Namespace):
+        if args.resolution:
+            request = request.resolution(args.resolution)
+        if args.audio_quality:
+            request = request.audio_quality(args.audio_quality)
+        if args.keep_video or args.no_keep_video:
+            request = request.keep_video(args.keep_video and not args.no_keep_video)
+        return request
+
     def run(self) -> None:
         args = self.parse_arguments()
 
@@ -126,17 +174,23 @@ class CLI:
         if self.handle_config_commands(args):
             return
 
-        if args.link:
-            request = build_url(args.link, config_manager=self.config_manager)
-            if args.resolution:
-                request = request.resolution(args.resolution)
-            if args.audio_quality:
-                request = request.audio_quality(args.audio_quality)
-            if args.keep_video or args.no_keep_video:
-                request = request.keep_video(args.keep_video and not args.no_keep_video)
-            result = request.write(args.output)
-            if not result.success:
-                raise SystemExit(1)
+        links = self.collect_links(args)
+        if links:
+            if args.output and len(links) > 1:
+                print("Error: --output cannot be used with multiple URLs", file=sys.stderr)
+                raise SystemExit(2)
+            if len(links) == 1:
+                request = build_url(links[0], config_manager=self.config_manager)
+                request = self.apply_download_options(request, args)
+                result = request.write(args.output)
+                if not result.success:
+                    raise SystemExit(1)
+            else:
+                request = build_urls(links, config_manager=self.config_manager)
+                request = self.apply_download_options(request, args)
+                results = request.write_all()
+                if any(not result.success for result in results):
+                    raise SystemExit(1)
         else:
             self.interactive_mode()
 

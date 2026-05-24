@@ -43,6 +43,10 @@ yt2mp3 uninstall --yes
 # Download a video
 yt2mp3 --link="https://youtube.com/watch?v=xxxxx"
 
+# Download multiple videos sequentially
+yt2mp3 --link="https://youtube.com/watch?v=xxxxx" --link="https://youtu.be/yyyyy"
+yt2mp3 --links urls.txt
+
 # Limit source video height and set MP3 bitrate
 yt2mp3 --link="https://youtube.com/watch?v=xxxxx" --resolution 1080p --audio-quality 320
 
@@ -64,6 +68,8 @@ yt2mp3 --version
 yt2mp3 --help
 ```
 
+`--links` files use one URL per line. Blank lines and full-line comments starting with `#` are ignored; inline `#` text is kept as part of the line. Shared options such as `--resolution`, `--audio-quality`, `--keep-video`, and `--no-keep-video` apply to every URL in a batch. `--output` is only allowed for a single URL because one filename would overwrite multiple downloads.
+
 ## Composable Python API
 
 ```python
@@ -76,14 +82,28 @@ result = (
     .write("song.mp3")
 )
 
+batch_results = (
+    yt2mp3.urls([
+        "https://youtube.com/watch?v=xxxxx",
+        "https://youtu.be/yyyyy",
+    ])
+    .resolution("720p")
+    .audio_quality("192")
+    .write_all()
+)
+
 if not result.success:
     raise RuntimeError(result.error or "download failed")
+
+if any(not item.success for item in batch_results):
+    raise RuntimeError("one or more downloads failed")
 ```
 
 - `.resolution("1080p")` / `.resolution("1080")` limits the source video selector to `height<=1080` while MP3 extraction remains the default.
 - `.audio_quality("320")` controls MP3 bitrate.
 - `.write()` writes to the configured download directory using the configured yt-dlp filename template.
 - `.write("song.mp3")` writes that MP3 name inside the configured download directory unless an absolute path is supplied.
+- `yt2mp3.urls([...]).resolution(...).audio_quality(...).write_all()` downloads URLs sequentially and returns one `DownloadResult` per URL.
 
 ## Configuration
 
