@@ -27,7 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "yt-dlp>=2023.12.30",
+    "yt-dlp>=2024.8.6,<2024.11.18",
 ]
 
 [project.optional-dependencies]
@@ -37,10 +37,10 @@ dev = [
 ]
 
 [project.scripts]
-yt2mp3 = "yt2mp3:main"
+yt2mp3 = "yt2mp3.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/yt2mp3"
+Homepage = "https://github.com/alphaofficial/yt2mp3"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/yt2mp3"]

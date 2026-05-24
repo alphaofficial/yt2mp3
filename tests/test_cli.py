@@ -1,6 +1,7 @@
 import unittest
 import tempfile
 import os
+import shutil
 import sys
 from io import StringIO
 from unittest.mock import Mock, patch, MagicMock
@@ -11,12 +12,13 @@ class TestCLI(unittest.TestCase):
     
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
+        self.env_patcher = patch.dict(os.environ, {"YT2MP3_HOME": self.temp_dir})
+        self.env_patcher.start()
         self.config_file = os.path.join(self.temp_dir, "test_config.json")
         
     def tearDown(self):
-        if os.path.exists(self.config_file):
-            os.remove(self.config_file)
-        os.rmdir(self.temp_dir)
+        self.env_patcher.stop()
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
     
     @patch('src.yt2mp3.cli.ConfigManager')
     @patch('src.yt2mp3.cli.YouTubeDownloader')
@@ -178,13 +180,73 @@ class TestCLI(unittest.TestCase):
         self.assertFalse(result)
     
     @patch('sys.argv', ['yt2mp3.py', '--link', 'https://youtube.com/watch?v=test'])
-    def test_run_with_link(self):
+    @patch('src.yt2mp3.cli.build_url')
+    def test_run_with_link(self, mock_build_url):
         cli = CLI()
-        cli.downloader.download = Mock(return_value=True)
+        mock_request = Mock()
+        mock_request.write.return_value = Mock(success=True)
+        mock_build_url.return_value = mock_request
         
         cli.run()
         
-        cli.downloader.download.assert_called_once_with('https://youtube.com/watch?v=test')
+        mock_build_url.assert_called_once_with('https://youtube.com/watch?v=test', config_manager=cli.config_manager)
+        mock_request.write.assert_called_once_with(None)
+
+    @patch('sys.argv', ['yt2mp3.py', '--link', 'https://youtube.com/watch?v=test', '--keep-video'])
+    @patch('src.yt2mp3.cli.build_url')
+    def test_run_with_link_and_keep_video_downloads_with_request_override(self, mock_build_url):
+        cli = CLI()
+        cli.config_manager.update_setting = Mock()
+        mock_request = Mock()
+        mock_request.keep_video.return_value = mock_request
+        mock_request.write.return_value = Mock(success=True)
+        mock_build_url.return_value = mock_request
+
+        cli.run()
+
+        cli.config_manager.update_setting.assert_not_called()
+        mock_build_url.assert_called_once_with('https://youtube.com/watch?v=test', config_manager=cli.config_manager)
+        mock_request.keep_video.assert_called_once_with(True)
+        mock_request.write.assert_called_once_with(None)
+
+    @patch('sys.argv', ['yt2mp3.py', '--link', 'https://youtube.com/watch?v=test', '--no-keep-video'])
+    @patch('src.yt2mp3.cli.build_url')
+    def test_run_with_link_and_no_keep_video_downloads_with_request_override(self, mock_build_url):
+        cli = CLI()
+        cli.config_manager.update_setting = Mock()
+        mock_request = Mock()
+        mock_request.keep_video.return_value = mock_request
+        mock_request.write.return_value = Mock(success=True)
+        mock_build_url.return_value = mock_request
+
+        cli.run()
+
+        cli.config_manager.update_setting.assert_not_called()
+        mock_build_url.assert_called_once_with('https://youtube.com/watch?v=test', config_manager=cli.config_manager)
+        mock_request.keep_video.assert_called_once_with(False)
+        mock_request.write.assert_called_once_with(None)
+
+    @patch('sys.argv', ['yt2mp3.py', '--keep-video'])
+    def test_run_without_link_and_keep_video_updates_config(self):
+        cli = CLI()
+        cli.config_manager.update_setting = Mock()
+        cli.interactive_mode = Mock()
+
+        cli.run()
+
+        cli.config_manager.update_setting.assert_called_once_with("keep_video", True)
+        cli.interactive_mode.assert_not_called()
+
+    @patch('sys.argv', ['yt2mp3.py', '--no-keep-video'])
+    def test_run_without_link_and_no_keep_video_updates_config(self):
+        cli = CLI()
+        cli.config_manager.update_setting = Mock()
+        cli.interactive_mode = Mock()
+
+        cli.run()
+
+        cli.config_manager.update_setting.assert_called_once_with("keep_video", False)
+        cli.interactive_mode.assert_not_called()
     
     @patch('sys.argv', ['yt2mp3.py', '--show-config'])
     def test_run_with_config_command(self):
