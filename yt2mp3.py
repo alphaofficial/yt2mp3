@@ -1,7 +1,44 @@
 #!/usr/bin/env python3
 
 import sys
-from src.yt2mp3.cli import CLI
+from importlib import import_module
+from pathlib import Path
+
+_PACKAGE_DIR = Path(__file__).resolve().parent / "src" / "yt2mp3"
+__path__ = [str(_PACKAGE_DIR)]
+__package__ = "yt2mp3"
+sys.modules.setdefault("yt2mp3", sys.modules[__name__])
+
+__version__ = "1.0.0"
+
+_api = import_module("yt2mp3.api")
+_cli = import_module("yt2mp3.cli")
+_config = import_module("yt2mp3.config")
+_downloader = import_module("yt2mp3.downloader")
+
+DownloadRequest = _api.DownloadRequest
+BatchDownloadRequest = _api.BatchDownloadRequest
+DownloadResult = _api.DownloadResult
+normalize_resolution = _api.normalize_resolution
+url = _api.url
+urls = _api.urls
+CLI = _cli.CLI
+ConfigManager = _config.ConfigManager
+YouTubeDownloader = _downloader.YouTubeDownloader
+
+__all__ = [
+    "CLI",
+    "ConfigManager",
+    "DownloadRequest",
+    "BatchDownloadRequest",
+    "DownloadResult",
+    "YouTubeDownloader",
+    "__version__",
+    "normalize_resolution",
+    "url",
+    "urls",
+    "main",
+]
 
 
 def main():

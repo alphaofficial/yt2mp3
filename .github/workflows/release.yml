@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-14]
+        include:
+          - os: ubuntu-latest
+            artifact: yt2mp3-linux-amd64
+          - os: ubuntu-24.04-arm
+            artifact: yt2mp3-linux-arm64
+          - os: macos-13
+            artifact: yt2mp3-darwin-amd64
+          - os: macos-14
+            artifact: yt2mp3-darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: uv sync --extra dev
+      - run: uv run pytest -q
+      - run: uv run --with pyinstaller pyinstaller yt2mp3.spec
+      - run: mv dist/yt2mp3 ${{ matrix.artifact }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+      - name: Determine release tag
+        id: release_tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=manual-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Create/update GitHub Release and upload asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: ${{ steps.release_tag.outputs.tag }}
+          files: ${{ matrix.artifact }}
+          make_latest: true
+          fail_on_unmatched_files: true
+          overwrite_files: true

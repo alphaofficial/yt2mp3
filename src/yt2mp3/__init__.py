@@ -1,14 +1,28 @@
 """
-YouTube to MP3 Converter
+YouTube to MP3 Converter.
 
-A simple, interactive Python program to download YouTube videos and convert them to MP3 format.
+Composable API example:
+    yt2mp3.url("https://youtube.com/watch?v=...").resolution("1080p").audio_quality("192").write("song.mp3")
+    yt2mp3.urls(["https://youtube.com/watch?v=..."]).resolution("1080p").write_all()
 """
 
 __version__ = "1.0.0"
 __author__ = "yt2mp3"
 
+from .api import BatchDownloadRequest, DownloadRequest, DownloadResult, normalize_resolution, url, urls
+from .cli import CLI, main
 from .config import ConfigManager
 from .downloader import YouTubeDownloader
-from .cli import CLI
 
-__all__ = ["ConfigManager", "YouTubeDownloader", "CLI"]
+__all__ = [
+    "ConfigManager",
+    "DownloadRequest",
+    "BatchDownloadRequest",
+    "DownloadResult",
+    "YouTubeDownloader",
+    "CLI",
+    "main",
+    "normalize_resolution",
+    "url",
+    "urls",
+]

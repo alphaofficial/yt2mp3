@@ -1,40 +1,24 @@
 # yt2mp3
 
-Downloads YouTube videos and convert them to MP3 format.
+Download YouTube videos and convert them to MP3.
 
-## Installation
+## Install with curl
 
-### Option 1: Install as Package (Recommended)
+`yt2mp3` release binaries install into `${YT2MP3_HOME:-$HOME/.yt2mp3}/bin/yt2mp3`.
+
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/yt2mp3.git
-cd yt2mp3
-
-# Install with uv (fast)
-uv sync
-
-# Install the package
-uv pip install -e .
-
-# Now you can use yt2mp3 from anywhere
-yt2mp3 --help
+curl -fsSL https://raw.githubusercontent.com/alphaofficial/yt2mp3/main/install.sh | sh
 ```
 
-### Option 2: Development Setup
+If the installer says the bin directory is not on your `PATH`, add:
+
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/yt2mp3.git
-cd yt2mp3
-
-# Install dependencies with uv
-uv sync
-
-# Run directly
-uv run python yt2mp3.py --help
+export PATH="$HOME/.yt2mp3/bin:$PATH"
 ```
 
-### Prerequisites
-Make sure you have `ffmpeg` installed (required for audio conversion):
+### Prerequisite: ffmpeg
+
+`ffmpeg` must be installed for MP3 extraction:
 
 ```bash
 # macOS
@@ -42,107 +26,108 @@ brew install ffmpeg
 
 # Ubuntu/Debian
 sudo apt install ffmpeg
-
-# Windows
-# Download from https://ffmpeg.org/download.html
 ```
 
-## Usage
+## Upgrade / uninstall
 
-### Command Line Mode
+```bash
+yt2mp3 upgrade
+yt2mp3 uninstall --yes
+```
+
+`uninstall` only removes a safe `.yt2mp3` home directory and refuses suspicious paths.
+
+## Command line usage
+
 ```bash
 # Download a video
 yt2mp3 --link="https://youtube.com/watch?v=xxxxx"
 
+# Download multiple videos sequentially
+yt2mp3 --link="https://youtube.com/watch?v=xxxxx" --link="https://youtu.be/yyyyy"
+yt2mp3 --links urls.txt
+
+# Limit source video height and set MP3 bitrate
+yt2mp3 --link="https://youtube.com/watch?v=xxxxx" --resolution 1080p --audio-quality 320
+
+# Write a specific output file
+yt2mp3 --link="https://youtube.com/watch?v=xxxxx" --output song.mp3
+
 # Set download path
 yt2mp3 --set-download-path="~/Downloads/Music"
 
-# Keep video files after conversion
+# Keep or delete source video after conversion
 yt2mp3 --keep-video
-
-# Delete video files after conversion (default)
 yt2mp3 --no-keep-video
 
-# Show current configuration
+# Show configuration
 yt2mp3 --show-config
 
-# Get help
+# Version/help
+yt2mp3 --version
 yt2mp3 --help
 ```
 
-### Interactive Mode
-```bash
-# Start interactive mode
-yt2mp3
+`--links` files use one URL per line. Blank lines and full-line comments starting with `#` are ignored; inline `#` text is kept as part of the line. Shared options such as `--resolution`, `--audio-quality`, `--keep-video`, and `--no-keep-video` apply to every URL in a batch. `--output` is only allowed for a single URL because one filename would overwrite multiple downloads.
+
+## Composable Python API
+
+```python
+import yt2mp3
+
+result = (
+    yt2mp3.url("https://youtube.com/watch?v=xxxxx")
+    .resolution("1080p")
+    .audio_quality("192")
+    .write("song.mp3")
+)
+
+batch_results = (
+    yt2mp3.urls([
+        "https://youtube.com/watch?v=xxxxx",
+        "https://youtu.be/yyyyy",
+    ])
+    .resolution("720p")
+    .audio_quality("192")
+    .write_all()
+)
+
+if not result.success:
+    raise RuntimeError(result.error or "download failed")
+
+if any(not item.success for item in batch_results):
+    raise RuntimeError("one or more downloads failed")
 ```
+
+- `.resolution("1080p")` / `.resolution("1080")` limits the source video selector to `height<=1080` while MP3 extraction remains the default.
+- `.audio_quality("320")` controls MP3 bitrate.
+- `.write()` writes to the configured download directory using the configured yt-dlp filename template.
+- `.write("song.mp3")` writes that MP3 name inside the configured download directory unless an absolute path is supplied.
+- `yt2mp3.urls([...]).resolution(...).audio_quality(...).write_all()` downloads URLs sequentially and returns one `DownloadResult` per URL.
 
 ## Configuration
 
-The program uses a `config.json` file with the following default settings:
+The default config is `${YT2MP3_HOME:-$HOME/.yt2mp3}/config.json`:
 
 ```json
 {
   "download_path": "~/Downloads",
   "audio_quality": "192",
   "filename_format": "%(title)s.%(ext)s",
-  "keep_video": false
+  "keep_video": false,
+  "resolution": "480"
 }
 ```
 
-**Configuration Options:**
-- `download_path`: Where to save MP3 files (and videos if kept)
-- `audio_quality`: MP3 bitrate in kbps - controls quality vs file size balance
-- `filename_format`: How to name downloaded files (yt-dlp format)
-- `keep_video`: Whether to keep original video files after MP3 conversion
-
-### Audio Quality Settings
-
-The `audio_quality` setting controls the MP3 bitrate (quality vs file size):
-| Bitrate | Quality Level    | Approx. File Size | Recommended Use                |
-|---------|------------------|-------------------|--------------------------------|
-| `"96"`  | Low              | ~0.7 MB/min       | Voice, podcasts, save space    |
-| `"128"` | Standard         | ~1 MB/min         | General listening, streaming   |
-| `"192"` | High (**Default**) | ~1.4 MB/min     | Music, balanced quality/size   |
-| `"256"` | Very High        | ~1.9 MB/min       | Audiophile, high fidelity      |
-| `"320"` | Maximum          | ~2.4 MB/min       | Best possible MP3 quality      |
-
-**To change audio quality:** Edit `config.json` and modify the `"audio_quality"` value.
-
+Explicit `ConfigManager(config_path)` usage is still supported for tests and embedding.
 
 ## Development
 
-### Key Commands
+This project uses [uv](https://github.com/astral-sh/uv). Do not install project dependencies globally.
+
 ```bash
-# Install/update dependencies
 uv sync
-
-# Run tests in virtual environment
 uv run pytest
-
-# Add new dependencies
-uv add <package>
-
-# Build distribution packages
+uv run yt2mp3 --help
 uv build
 ```
-
-### Running Tests
-```bash
-# Run all tests
-uv run pytest
-
-# Run with coverage
-uv run pytest --cov=src --cov-report=html
-
-# Run specific test file
-uv run pytest tests/test_config.py
-```
-
-
-## Requirements
-
-- Python 3.8+
-- yt-dlp (YouTube downloader)
-- ffmpeg (audio conversion)
-
-**Note:** This project uses [uv](https://github.com/astral-sh/uv) for fast Python package management.

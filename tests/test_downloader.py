@@ -1,6 +1,7 @@
 import unittest
 import tempfile
 import os
+from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from src.yt2mp3.config import ConfigManager
 from src.yt2mp3.downloader import YouTubeDownloader
@@ -26,11 +27,29 @@ class TestYouTubeDownloader(unittest.TestCase):
     def test_validate_url_valid_youtu_be(self):
         valid_url = "https://youtu.be/dQw4w9WgXcQ"
         self.assertTrue(self.downloader.validate_url(valid_url))
+
+    def test_validate_url_valid_youtube_subdomains(self):
+        valid_urls = [
+            "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
+            "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+            "http://youtu.be/dQw4w9WgXcQ",
+        ]
+
+        for url in valid_urls:
+            with self.subTest(url=url):
+                self.assertTrue(self.downloader.validate_url(url))
     
     def test_validate_url_invalid(self):
         invalid_urls = [
             "https://vimeo.com/123456",
             "https://example.com",
+            "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ",
+            "https://evil-youtube.com/watch?v=dQw4w9WgXcQ",
+            "https://youtu.be.evil.example/dQw4w9WgXcQ",
+            "ftp://youtube.com/watch?v=dQw4w9WgXcQ",
+            "youtube.com/watch?v=dQw4w9WgXcQ",
             "not_a_url",
             ""
         ]
@@ -38,6 +57,44 @@ class TestYouTubeDownloader(unittest.TestCase):
         for url in invalid_urls:
             with self.subTest(url=url):
                 self.assertFalse(self.downloader.validate_url(url))
+
+    def test_resolve_relative_output_under_download_path(self):
+        download_dir = Path(self.temp_dir) / "downloads"
+        self.config_manager.config["download_path"] = str(download_dir)
+
+        resolved = self.downloader.resolve_output_path("nested/song.mp3")
+
+        self.assertEqual(resolved, str((download_dir / "nested/song.mp3").resolve()))
+
+    def test_resolve_output_rejects_relative_traversal(self):
+        download_dir = Path(self.temp_dir) / "downloads"
+        self.config_manager.config["download_path"] = str(download_dir)
+
+        with self.assertRaises(ValueError):
+            self.downloader.resolve_output_path("../escape.mp3")
+
+    def test_resolve_output_rejects_absolute_escape(self):
+        download_dir = Path(self.temp_dir) / "downloads"
+        self.config_manager.config["download_path"] = str(download_dir)
+
+        with self.assertRaises(ValueError):
+            self.downloader.resolve_output_path(Path(self.temp_dir) / "escape.mp3")
+
+    def test_resolve_default_output_rejects_filename_format_traversal(self):
+        download_dir = Path(self.temp_dir) / "downloads"
+        self.config_manager.config["download_path"] = str(download_dir)
+        self.config_manager.config["filename_format"] = "../escape.%(ext)s"
+
+        with self.assertRaises(ValueError):
+            self.downloader.resolve_output_path(None)
+
+    def test_build_ydl_options_rejects_filename_format_traversal(self):
+        download_dir = Path(self.temp_dir) / "downloads"
+        self.config_manager.config["download_path"] = str(download_dir)
+        self.config_manager.config["filename_format"] = "../escape.%(ext)s"
+
+        with self.assertRaises(ValueError):
+            self.downloader.build_ydl_options()
     
     @patch('src.yt2mp3.downloader.yt_dlp.YoutubeDL')
     def test_get_video_info_success(self, mock_ydl_class):
@@ -173,7 +230,7 @@ class TestYouTubeDownloader(unittest.TestCase):
         
         # Check that YoutubeDL was called with correct options
         call_args = mock_ydl_class.call_args[0][0]
-        self.assertEqual(call_args['format'], 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best[height<=480]')
+        self.assertEqual(call_args['format'], 'bestvideo[height<=480]+bestaudio/best[height<=480]/bestaudio')
         self.assertIn('FFmpegExtractAudio', call_args['postprocessors'][0]['key'])
         self.assertEqual(call_args['postprocessors'][0]['preferredcodec'], 'mp3')
         self.assertEqual(call_args['postprocessors'][0]['preferredquality'], '320')
